@@ -67,6 +67,13 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
     // ─── Treasury ───────────────────────────────────────────────────
     address public treasury;
 
+    // ─── ERC4626 inflation attack protection ─────────────────────────
+    uint256 public constant VIRTUAL_SHARES = 1e6;
+    uint256 public constant VIRTUAL_ASSETS = 1e6;
+
+    // ─── Strategy limit ─────────────────────────────────────────────
+    uint256 public constant MAX_STRATEGIES = 10;
+
     // ─── Idle CLAWD (not deployed to strategies) ────────────────────
     // totalAssets = idleBalance + sum(strategy.totalAssets())
 
@@ -129,18 +136,14 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
         }
     }
 
-    /// @notice Convert assets to shares (for deposit)
+    /// @notice Convert assets to shares (for deposit) — uses virtual offset to prevent inflation attack
     function convertToShares(uint256 assets) public view returns (uint256) {
-        uint256 supply = totalSupply();
-        if (supply == 0) return assets;
-        return assets.mulDiv(supply, totalAssets(), Math.Rounding.Floor);
+        return assets.mulDiv(totalSupply() + VIRTUAL_SHARES, totalAssets() + VIRTUAL_ASSETS, Math.Rounding.Floor);
     }
 
-    /// @notice Convert shares to assets (for withdrawal)
+    /// @notice Convert shares to assets (for withdrawal) — uses virtual offset
     function convertToAssets(uint256 shares) public view returns (uint256) {
-        uint256 supply = totalSupply();
-        if (supply == 0) return shares;
-        return shares.mulDiv(totalAssets(), supply, Math.Rounding.Floor);
+        return shares.mulDiv(totalAssets() + VIRTUAL_ASSETS, totalSupply() + VIRTUAL_SHARES, Math.Rounding.Floor);
     }
 
     /// @notice Preview how many shares a deposit would yield
@@ -255,9 +258,12 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
 
     // ─── Strategy management (owner only) ───────────────────────────
 
+    error TooManyStrategies();
+
     /// @notice Add a new yield strategy
     function addStrategy(address _strategy) external onlyOwner {
         if (_strategy == address(0)) revert ZeroAddress();
+        if (strategies.length >= MAX_STRATEGIES) revert TooManyStrategies();
         if (isStrategy[_strategy]) revert StrategyAlreadyAdded();
         if (IStrategy(_strategy).want() != address(clawd)) revert InvalidStrategy();
 
