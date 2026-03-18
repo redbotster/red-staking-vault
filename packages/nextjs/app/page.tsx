@@ -17,7 +17,7 @@ const LOCK_TIERS = [
   { value: 3, label: "365 Days", description: "50% fee discount, 1.3x yield" },
 ] as const;
 
-const CLAWD_TOKEN = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07";
+const RED_TOKEN = "0x2e662015a501f066e043d64d04f77ffe551a4b07";
 
 const Home: NextPage = () => {
   const { address, isConnected, chain } = useAccount();
@@ -31,20 +31,20 @@ const Home: NextPage = () => {
   const [isApproving, setIsApproving] = useState(false);
   const [approveCooldown, setApproveCooldown] = useState(false);
   const [isCompounding, setIsCompounding] = useState(false);
-  const [clawdPrice, setClawdPrice] = useState<number>(0);
+  const [redPrice, setRedPrice] = useState<number>(0);
 
   // Target chain - Base for production, foundry for dev
   const targetChainId = chain?.id === 31337 ? 31337 : base.id;
   const wrongNetwork = isConnected && chain?.id !== targetChainId;
 
-  // Fetch CLAWD price from DexScreener
+  // Fetch RED price from DexScreener
   useEffect(() => {
     const fetchPrice = async () => {
       try {
-        const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${CLAWD_TOKEN}`);
+        const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${RED_TOKEN}`);
         const data = await res.json();
         if (data.pairs?.[0]?.priceUsd) {
-          setClawdPrice(parseFloat(data.pairs[0].priceUsd));
+          setRedPrice(parseFloat(data.pairs[0].priceUsd));
         }
       } catch {
         /* price fetch is best-effort */
@@ -55,65 +55,65 @@ const Home: NextPage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const { data: vaultInfo } = useDeployedContractInfo("CLAWDVault");
+  const { data: vaultInfo } = useDeployedContractInfo("REDVault");
   const vaultAddress = vaultInfo?.address;
 
   // Read vault data
   const { data: totalAssets } = useScaffoldReadContract({
-    contractName: "CLAWDVault",
+    contractName: "REDVault",
     functionName: "totalAssets",
     watch: true,
   });
 
   const { data: userDeposit } = useScaffoldReadContract({
-    contractName: "CLAWDVault",
+    contractName: "REDVault",
     functionName: "userDeposits",
     args: [address],
     watch: true,
   });
 
-  const { data: stClawdBalance } = useScaffoldReadContract({
-    contractName: "CLAWDVault",
+  const { data: stRedBalance } = useScaffoldReadContract({
+    contractName: "REDVault",
     functionName: "balanceOf",
     args: [address],
     watch: true,
   });
 
   const { data: underlyingBal } = useScaffoldReadContract({
-    contractName: "CLAWDVault",
+    contractName: "REDVault",
     functionName: "underlyingBalance",
     args: [address],
     watch: true,
   });
 
   const { data: totalSupply } = useScaffoldReadContract({
-    contractName: "CLAWDVault",
+    contractName: "REDVault",
     functionName: "totalSupply",
     watch: true,
   });
 
-  // Read CLAWD allowance for vault
-  const { data: clawdAllowance } = useScaffoldReadContract({
-    contractName: "CLAWDToken",
+  // Read RED allowance for vault
+  const { data: redAllowance } = useScaffoldReadContract({
+    contractName: "REDToken",
     functionName: "allowance",
     args: [address, vaultAddress],
     watch: true,
   });
 
-  // Read CLAWD balance
-  const { data: clawdBalance } = useScaffoldReadContract({
-    contractName: "CLAWDToken",
+  // Read RED balance
+  const { data: redBalance } = useScaffoldReadContract({
+    contractName: "REDToken",
     functionName: "balanceOf",
     args: [address],
     watch: true,
   });
 
   // Write contracts
-  const { writeContractAsync: vaultWrite } = useScaffoldWriteContract("CLAWDVault");
-  const { writeContractAsync: tokenWrite } = useScaffoldWriteContract("CLAWDToken");
+  const { writeContractAsync: vaultWrite } = useScaffoldWriteContract("REDVault");
+  const { writeContractAsync: tokenWrite } = useScaffoldWriteContract("REDToken");
 
   const depositAmountWei = depositAmount ? parseEther(depositAmount) : 0n;
-  const needsApproval = !clawdAllowance || clawdAllowance < depositAmountWei;
+  const needsApproval = !redAllowance || redAllowance < depositAmountWei;
 
   const handleApprove = async () => {
     if (!depositAmount || parseFloat(depositAmount) <= 0 || !vaultAddress) return;
@@ -178,12 +178,12 @@ const Home: NextPage = () => {
   };
 
   const tvl = totalAssets ? formatEther(totalAssets) : "0";
-  const tvlUsd = clawdPrice > 0 ? `~$${(parseFloat(tvl) * clawdPrice).toFixed(2)}` : "";
-  const userShares = stClawdBalance ? formatEther(stClawdBalance) : "0";
+  const tvlUsd = redPrice > 0 ? `~$${(parseFloat(tvl) * redPrice).toFixed(2)}` : "";
+  const userShares = stRedBalance ? formatEther(stRedBalance) : "0";
   const userUnderlying = underlyingBal ? formatEther(underlyingBal) : "0";
-  const userUnderlyingUsd = clawdPrice > 0 ? `~$${(parseFloat(userUnderlying) * clawdPrice).toFixed(2)}` : "";
-  const userClawdBal = clawdBalance ? formatEther(clawdBalance) : "0";
-  const userClawdBalUsd = clawdPrice > 0 ? `~$${(parseFloat(userClawdBal) * clawdPrice).toFixed(2)}` : "";
+  const userUnderlyingUsd = redPrice > 0 ? `~$${(parseFloat(userUnderlying) * redPrice).toFixed(2)}` : "";
+  const userRedBal = redBalance ? formatEther(redBalance) : "0";
+  const userRedBalUsd = redPrice > 0 ? `~$${(parseFloat(userRedBal) * redPrice).toFixed(2)}` : "";
 
   const lockExpiry = userDeposit ? Number(userDeposit[1]) : 0;
   const lockTier = userDeposit ? Number(userDeposit[2]) : 0;
@@ -219,7 +219,7 @@ const Home: NextPage = () => {
               <span className="loading loading-spinner loading-sm" /> Approving...
             </>
           ) : (
-            "Approve CLAWD"
+            "Approve RED"
           )}
         </button>
       );
@@ -289,13 +289,13 @@ const Home: NextPage = () => {
         <div className="card bg-base-100 shadow-md">
           <div className="card-body p-4">
             <h2 className="card-title text-sm opacity-70">Total Value Locked</h2>
-            <p className="text-2xl font-bold">{parseFloat(tvl).toLocaleString()} CLAWD</p>
+            <p className="text-2xl font-bold">{parseFloat(tvl).toLocaleString()} RED</p>
             {tvlUsd && <p className="text-sm opacity-60">{tvlUsd}</p>}
           </div>
         </div>
         <div className="card bg-base-100 shadow-md">
           <div className="card-body p-4">
-            <h2 className="card-title text-sm opacity-70">Total stCLAWD Supply</h2>
+            <h2 className="card-title text-sm opacity-70">Total stRED Supply</h2>
             <p className="text-2xl font-bold">
               {totalSupply ? parseFloat(formatEther(totalSupply)).toLocaleString() : "0"}
             </p>
@@ -317,16 +317,16 @@ const Home: NextPage = () => {
             <h2 className="card-title">Your Position</h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-sm opacity-70">CLAWD Balance</p>
-                <p className="text-xl font-bold">{parseFloat(userClawdBal).toLocaleString()}</p>
-                {userClawdBalUsd && <p className="text-sm opacity-60">{userClawdBalUsd}</p>}
+                <p className="text-sm opacity-70">RED Balance</p>
+                <p className="text-xl font-bold">{parseFloat(userRedBal).toLocaleString()}</p>
+                {userRedBalUsd && <p className="text-sm opacity-60">{userRedBalUsd}</p>}
               </div>
               <div>
-                <p className="text-sm opacity-70">stCLAWD Balance</p>
+                <p className="text-sm opacity-70">stRED Balance</p>
                 <p className="text-xl font-bold">{parseFloat(userShares).toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-sm opacity-70">Underlying CLAWD</p>
+                <p className="text-sm opacity-70">Underlying RED</p>
                 <p className="text-xl font-bold">{parseFloat(userUnderlying).toLocaleString()}</p>
                 {userUnderlyingUsd && <p className="text-sm opacity-60">{userUnderlyingUsd}</p>}
               </div>
@@ -351,7 +351,7 @@ const Home: NextPage = () => {
         {/* Deposit */}
         <div className="card bg-base-100 shadow-md">
           <div className="card-body">
-            <h2 className="card-title">Deposit CLAWD</h2>
+            <h2 className="card-title">Deposit RED</h2>
             <div className="form-control">
               <label className="label">
                 <span className="label-text">Amount</span>
@@ -364,9 +364,9 @@ const Home: NextPage = () => {
                 onChange={e => setDepositAmount(e.target.value)}
                 disabled={isDepositing || isApproving}
               />
-              {depositAmount && clawdPrice > 0 && (
+              {depositAmount && redPrice > 0 && (
                 <p className="text-sm opacity-60 mt-1">
-                  ≈ ${(parseFloat(depositAmount || "0") * clawdPrice).toFixed(2)} USD
+                  ≈ ${(parseFloat(depositAmount || "0") * redPrice).toFixed(2)} USD
                 </p>
               )}
             </div>
@@ -393,10 +393,10 @@ const Home: NextPage = () => {
         {/* Withdraw */}
         <div className="card bg-base-100 shadow-md">
           <div className="card-body">
-            <h2 className="card-title">Withdraw CLAWD</h2>
+            <h2 className="card-title">Withdraw RED</h2>
             <div className="form-control">
               <label className="label">
-                <span className="label-text">stCLAWD Shares</span>
+                <span className="label-text">stRED Shares</span>
               </label>
               <input
                 type="number"
@@ -408,8 +408,8 @@ const Home: NextPage = () => {
               />
               {withdrawAmount && (
                 <p className="text-sm opacity-60 mt-1">
-                  ≈ {withdrawAmount} CLAWD{" "}
-                  {clawdPrice > 0 && `(~$${(parseFloat(withdrawAmount || "0") * clawdPrice).toFixed(2)})`}
+                  ≈ {withdrawAmount} RED{" "}
+                  {redPrice > 0 && `(~$${(parseFloat(withdrawAmount || "0") * redPrice).toFixed(2)})`}
                 </p>
               )}
             </div>
@@ -436,7 +436,7 @@ const Home: NextPage = () => {
                 <span className="loading loading-spinner loading-sm" /> Compounding...
               </>
             ) : (
-              "🔄 Compound"
+              "Compound"
             )}
           </button>
         </div>
@@ -447,8 +447,8 @@ const Home: NextPage = () => {
         <div className="text-center mt-4 text-sm opacity-70">
           <p>Vault Contract:</p>
           <Address address={vaultAddress} />
-          <p className="mt-2">CLAWD Token:</p>
-          <Address address={CLAWD_TOKEN} />
+          <p className="mt-2">RED Token:</p>
+          <Address address={RED_TOKEN} />
         </div>
       )}
     </div>

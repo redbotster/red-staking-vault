@@ -10,27 +10,27 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title IStrategy - Pluggable yield strategy interface
 interface IStrategy {
-    /// @notice Deposit CLAWD into the strategy
+    /// @notice Deposit RED into the strategy
     function deposit(uint256 amount) external;
-    /// @notice Withdraw CLAWD from the strategy
+    /// @notice Withdraw RED from the strategy
     function withdraw(uint256 amount) external returns (uint256 withdrawn);
-    /// @notice Harvest rewards, returning them as CLAWD to the vault
+    /// @notice Harvest rewards, returning them as RED to the vault
     function harvest() external returns (uint256 harvested);
-    /// @notice Total CLAWD managed by this strategy
+    /// @notice Total RED managed by this strategy
     function totalAssets() external view returns (uint256);
-    /// @notice The underlying token (should be CLAWD)
+    /// @notice The underlying token (should be RED)
     function want() external view returns (address);
 }
 
-/// @title CLAWDVault - Auto-compounding ERC4626-style vault for CLAWD
-/// @notice Deposit CLAWD → receive stCLAWD shares. Auto-compounds yield via strategies.
+/// @title REDVault - Auto-compounding ERC4626-style vault for RED
+/// @notice Deposit RED → receive stRED shares. Auto-compounds yield via strategies.
 /// @dev NOT a strict ERC4626 due to lock tier logic, but follows the pattern closely.
-contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
+contract REDVault is ERC20, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
     // ─── Constants ───────────────────────────────────────────────────
-    IERC20 public immutable clawd;
+    IERC20 public immutable red;
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
     // ─── Fee config (basis points) ──────────────────────────────────
@@ -74,7 +74,7 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
     // ─── Strategy limit ─────────────────────────────────────────────
     uint256 public constant MAX_STRATEGIES = 10;
 
-    // ─── Idle CLAWD (not deployed to strategies) ────────────────────
+    // ─── Idle RED (not deployed to strategies) ────────────────────
     // totalAssets = idleBalance + sum(strategy.totalAssets())
 
     // ─── Events ─────────────────────────────────────────────────────
@@ -95,12 +95,12 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
     error ZeroAddress();
 
     constructor(
-        address _clawd,
+        address _red,
         address _treasury,
         address _owner
-    ) ERC20("Staked CLAWD", "stCLAWD") Ownable(_owner) {
-        if (_clawd == address(0) || _treasury == address(0) || _owner == address(0)) revert ZeroAddress();
-        clawd = IERC20(_clawd);
+    ) ERC20("Staked RED", "stRED") Ownable(_owner) {
+        if (_red == address(0) || _treasury == address(0) || _owner == address(0)) revert ZeroAddress();
+        red = IERC20(_red);
         treasury = _treasury;
 
         // Configure lock tiers
@@ -128,9 +128,9 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
 
     // ─── View functions ─────────────────────────────────────────────
 
-    /// @notice Total CLAWD managed by the vault (idle + strategies)
+    /// @notice Total RED managed by the vault (idle + strategies)
     function totalAssets() public view returns (uint256 total) {
-        total = clawd.balanceOf(address(this));
+        total = red.balanceOf(address(this));
         for (uint256 i = 0; i < strategies.length; i++) {
             total += strategies[i].totalAssets();
         }
@@ -156,7 +156,7 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
         return convertToAssets(shares);
     }
 
-    /// @notice Get user's underlying CLAWD value
+    /// @notice Get user's underlying RED value
     function underlyingBalance(address user) external view returns (uint256) {
         return convertToAssets(userDeposits[user].shares);
     }
@@ -168,8 +168,8 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
 
     // ─── Core functions ─────────────────────────────────────────────
 
-    /// @notice Deposit CLAWD and receive stCLAWD shares
-    /// @param assets Amount of CLAWD to deposit
+    /// @notice Deposit RED and receive stRED shares
+    /// @param assets Amount of RED to deposit
     /// @param tier Lock tier to use
     function deposit(uint256 assets, LockTier tier) external nonReentrant {
         if (assets == 0) revert ZeroAmount();
@@ -177,8 +177,8 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
         uint256 shares = convertToShares(assets);
         if (shares == 0) revert ZeroAmount();
 
-        // Transfer CLAWD from user
-        clawd.safeTransferFrom(msg.sender, address(this), assets);
+        // Transfer RED from user
+        red.safeTransferFrom(msg.sender, address(this), assets);
 
         // Update user deposit
         UserDeposit storage ud = userDeposits[msg.sender];
@@ -191,14 +191,14 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
         }
         ud.shares += shares;
 
-        // Mint stCLAWD
+        // Mint stRED
         _mint(msg.sender, shares);
 
         emit Deposited(msg.sender, assets, shares, tier);
     }
 
-    /// @notice Withdraw CLAWD by burning stCLAWD shares
-    /// @param shares Amount of stCLAWD shares to burn
+    /// @notice Withdraw RED by burning stRED shares
+    /// @param shares Amount of stRED shares to burn
     function withdraw(uint256 shares) external nonReentrant {
         if (shares == 0) revert ZeroAmount();
 
@@ -212,17 +212,17 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
         // Update user state
         ud.shares -= shares;
 
-        // Burn stCLAWD
+        // Burn stRED
         _burn(msg.sender, shares);
 
-        // Ensure enough idle CLAWD
-        uint256 idle = clawd.balanceOf(address(this));
+        // Ensure enough idle RED
+        uint256 idle = red.balanceOf(address(this));
         if (idle < assets) {
             _withdrawFromStrategies(assets - idle);
         }
 
-        // Transfer CLAWD to user
-        clawd.safeTransfer(msg.sender, assets);
+        // Transfer RED to user
+        red.safeTransfer(msg.sender, assets);
 
         emit Withdrawn(msg.sender, assets, shares);
     }
@@ -246,10 +246,10 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
 
         // Execute fee distribution
         if (feeBurn > 0) {
-            clawd.safeTransfer(BURN_ADDRESS, feeBurn);
+            red.safeTransfer(BURN_ADDRESS, feeBurn);
         }
         if (feeTreasury > 0) {
-            clawd.safeTransfer(treasury, feeTreasury);
+            red.safeTransfer(treasury, feeTreasury);
         }
         // feeStakers stays in the vault → increases share value for all holders
 
@@ -265,13 +265,13 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
         if (_strategy == address(0)) revert ZeroAddress();
         if (strategies.length >= MAX_STRATEGIES) revert TooManyStrategies();
         if (isStrategy[_strategy]) revert StrategyAlreadyAdded();
-        if (IStrategy(_strategy).want() != address(clawd)) revert InvalidStrategy();
+        if (IStrategy(_strategy).want() != address(red)) revert InvalidStrategy();
 
         strategies.push(IStrategy(_strategy));
         isStrategy[_strategy] = true;
 
-        // Approve strategy to pull CLAWD
-        clawd.approve(_strategy, type(uint256).max);
+        // Approve strategy to pull RED
+        red.approve(_strategy, type(uint256).max);
 
         emit StrategyAdded(_strategy);
     }
@@ -293,12 +293,12 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
         }
 
         isStrategy[_strategy] = false;
-        clawd.approve(_strategy, 0);
+        red.approve(_strategy, 0);
 
         emit StrategyRemoved(_strategy);
     }
 
-    /// @notice Deploy idle CLAWD to a strategy
+    /// @notice Deploy idle RED to a strategy
     function deployToStrategy(uint256 strategyIndex, uint256 amount) external onlyOwner {
         if (strategyIndex >= strategies.length) revert InvalidStrategy();
         if (amount == 0) revert ZeroAmount();
@@ -330,8 +330,8 @@ contract CLAWDVault is ERC20, Ownable, ReentrancyGuard {
     }
 
     // ─── Transfer restrictions ──────────────────────────────────────
-    // stCLAWD is transferable, but the lock applies to the original depositor's withdrawal
-    // Transfers of stCLAWD do NOT transfer the lock — recipients can withdraw immediately
+    // stRED is transferable, but the lock applies to the original depositor's withdrawal
+    // Transfers of stRED do NOT transfer the lock — recipients can withdraw immediately
     // (their userDeposits entry will have lockExpiry = 0 if they didn't deposit themselves)
 
     /// @dev Override transfer to track shares

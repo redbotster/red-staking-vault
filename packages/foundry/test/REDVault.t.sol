@@ -2,12 +2,12 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/CLAWDVault.sol";
+import "../contracts/REDVault.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-// Mock CLAWD token
-contract MockCLAWD is ERC20 {
-    constructor() ERC20("CLAWD", "CLAWD") {
+// Mock RED token
+contract MockRED is ERC20 {
+    constructor() ERC20("RED", "RED") {
         _mint(msg.sender, 1_000_000 ether);
     }
     function mint(address to, uint256 amount) external {
@@ -56,9 +56,9 @@ contract MockStrategy is IStrategy {
     }
 }
 
-contract CLAWDVaultTest is Test {
-    CLAWDVault public vault;
-    MockCLAWD public clawd;
+contract REDVaultTest is Test {
+    REDVault public vault;
+    MockRED public red;
     MockStrategy public strategy;
 
     address owner = address(0xBEEF);
@@ -67,29 +67,29 @@ contract CLAWDVaultTest is Test {
     address bob = address(0xB0B);
 
     function setUp() public {
-        clawd = new MockCLAWD();
-        vault = new CLAWDVault(address(clawd), treasury, owner);
+        red = new MockRED();
+        vault = new REDVault(address(red), treasury, owner);
 
         // Fund users
-        clawd.mint(alice, 100_000 ether);
-        clawd.mint(bob, 100_000 ether);
+        red.mint(alice, 100_000 ether);
+        red.mint(bob, 100_000 ether);
 
         // Setup strategy
-        strategy = new MockStrategy(address(clawd), address(vault));
+        strategy = new MockStrategy(address(red), address(vault));
 
         vm.prank(owner);
         vault.addStrategy(address(strategy));
 
         // Approve vault
         vm.prank(alice);
-        clawd.approve(address(vault), type(uint256).max);
+        red.approve(address(vault), type(uint256).max);
         vm.prank(bob);
-        clawd.approve(address(vault), type(uint256).max);
+        red.approve(address(vault), type(uint256).max);
     }
 
     function test_deposit() public {
         vm.prank(alice);
-        vault.deposit(1000 ether, CLAWDVault.LockTier.NONE);
+        vault.deposit(1000 ether, REDVault.LockTier.NONE);
 
         assertEq(vault.balanceOf(alice), 1000 ether);
         assertEq(vault.totalAssets(), 1000 ether);
@@ -97,28 +97,28 @@ contract CLAWDVaultTest is Test {
 
     function test_deposit_with_lock() public {
         vm.prank(alice);
-        vault.deposit(1000 ether, CLAWDVault.LockTier.SIX_MONTH);
+        vault.deposit(1000 ether, REDVault.LockTier.SIX_MONTH);
 
-        (uint256 shares, uint256 lockExpiry, CLAWDVault.LockTier tier) = vault.userDeposits(alice);
+        (uint256 shares, uint256 lockExpiry, REDVault.LockTier tier) = vault.userDeposits(alice);
         assertEq(shares, 1000 ether);
         assertEq(lockExpiry, block.timestamp + 180 days);
-        assertEq(uint(tier), uint(CLAWDVault.LockTier.SIX_MONTH));
+        assertEq(uint(tier), uint(REDVault.LockTier.SIX_MONTH));
     }
 
     function test_withdraw() public {
         vm.prank(alice);
-        vault.deposit(1000 ether, CLAWDVault.LockTier.NONE);
+        vault.deposit(1000 ether, REDVault.LockTier.NONE);
 
         vm.prank(alice);
         vault.withdraw(1000 ether);
 
         assertEq(vault.balanceOf(alice), 0);
-        assertEq(clawd.balanceOf(alice), 100_000 ether);
+        assertEq(red.balanceOf(alice), 100_000 ether);
     }
 
     function test_withdraw_locked_reverts() public {
         vm.prank(alice);
-        vault.deposit(1000 ether, CLAWDVault.LockTier.THREE_MONTH);
+        vault.deposit(1000 ether, REDVault.LockTier.THREE_MONTH);
 
         vm.prank(alice);
         vm.expectRevert();
@@ -127,7 +127,7 @@ contract CLAWDVaultTest is Test {
 
     function test_withdraw_after_lock() public {
         vm.prank(alice);
-        vault.deposit(1000 ether, CLAWDVault.LockTier.THREE_MONTH);
+        vault.deposit(1000 ether, REDVault.LockTier.THREE_MONTH);
 
         vm.warp(block.timestamp + 91 days);
 
@@ -138,18 +138,18 @@ contract CLAWDVaultTest is Test {
 
     function test_compound() public {
         vm.prank(alice);
-        vault.deposit(1000 ether, CLAWDVault.LockTier.NONE);
+        vault.deposit(1000 ether, REDVault.LockTier.NONE);
 
         // Deploy to strategy
         vm.prank(owner);
         vault.deployToStrategy(0, 500 ether);
 
         // Simulate rewards
-        clawd.mint(address(strategy), 100 ether);
+        red.mint(address(strategy), 100 ether);
         strategy.setPendingRewards(100 ether);
 
-        uint256 treasuryBefore = clawd.balanceOf(treasury);
-        uint256 burnBefore = clawd.balanceOf(vault.BURN_ADDRESS());
+        uint256 treasuryBefore = red.balanceOf(treasury);
+        uint256 burnBefore = red.balanceOf(vault.BURN_ADDRESS());
 
         vault.compound();
 
@@ -161,8 +161,8 @@ contract CLAWDVaultTest is Test {
         uint256 feeBurn = (fee * 5000) / 10000;
         uint256 feeTreasury = (fee * 2500) / 10000;
 
-        assertEq(clawd.balanceOf(vault.BURN_ADDRESS()) - burnBefore, feeBurn);
-        assertEq(clawd.balanceOf(treasury) - treasuryBefore, feeTreasury);
+        assertEq(red.balanceOf(vault.BURN_ADDRESS()) - burnBefore, feeBurn);
+        assertEq(red.balanceOf(treasury) - treasuryBefore, feeTreasury);
 
         // Vault total should be 1000 + 100 - feeBurn - feeTreasury
         assertEq(vault.totalAssets(), 1000 ether + 100 ether - feeBurn - feeTreasury);
@@ -170,12 +170,12 @@ contract CLAWDVaultTest is Test {
 
     function test_share_value_increases_after_compound() public {
         vm.prank(alice);
-        vault.deposit(1000 ether, CLAWDVault.LockTier.NONE);
+        vault.deposit(1000 ether, REDVault.LockTier.NONE);
 
         vm.prank(owner);
         vault.deployToStrategy(0, 500 ether);
 
-        clawd.mint(address(strategy), 100 ether);
+        red.mint(address(strategy), 100 ether);
         strategy.setPendingRewards(100 ether);
 
         vault.compound();
@@ -187,18 +187,18 @@ contract CLAWDVaultTest is Test {
 
     function test_zero_deposit_reverts() public {
         vm.prank(alice);
-        vm.expectRevert(CLAWDVault.ZeroAmount.selector);
-        vault.deposit(0, CLAWDVault.LockTier.NONE);
+        vm.expectRevert(REDVault.ZeroAmount.selector);
+        vault.deposit(0, REDVault.LockTier.NONE);
     }
 
     function test_zero_withdraw_reverts() public {
         vm.prank(alice);
-        vm.expectRevert(CLAWDVault.ZeroAmount.selector);
+        vm.expectRevert(REDVault.ZeroAmount.selector);
         vault.withdraw(0);
     }
 
     function test_add_strategy_not_owner_reverts() public {
-        MockStrategy s2 = new MockStrategy(address(clawd), address(vault));
+        MockStrategy s2 = new MockStrategy(address(red), address(vault));
         vm.prank(alice);
         vm.expectRevert();
         vault.addStrategy(address(s2));
@@ -206,7 +206,7 @@ contract CLAWDVaultTest is Test {
 
     function test_remove_strategy() public {
         vm.prank(alice);
-        vault.deposit(1000 ether, CLAWDVault.LockTier.NONE);
+        vault.deposit(1000 ether, REDVault.LockTier.NONE);
         vm.prank(owner);
         vault.deployToStrategy(0, 500 ether);
 
@@ -215,7 +215,7 @@ contract CLAWDVaultTest is Test {
 
         assertEq(vault.strategyCount(), 0);
         // Funds should be back in vault
-        assertEq(clawd.balanceOf(address(vault)), 1000 ether);
+        assertEq(red.balanceOf(address(vault)), 1000 ether);
     }
 
     function test_set_treasury() public {
@@ -227,7 +227,7 @@ contract CLAWDVaultTest is Test {
 
     function test_transfer_shares() public {
         vm.prank(alice);
-        vault.deposit(1000 ether, CLAWDVault.LockTier.NONE);
+        vault.deposit(1000 ether, REDVault.LockTier.NONE);
 
         vm.prank(alice);
         vault.transfer(bob, 500 ether);
@@ -241,10 +241,10 @@ contract CLAWDVaultTest is Test {
 
     function test_multiple_deposits() public {
         vm.prank(alice);
-        vault.deposit(1000 ether, CLAWDVault.LockTier.NONE);
+        vault.deposit(1000 ether, REDVault.LockTier.NONE);
 
         vm.prank(bob);
-        vault.deposit(2000 ether, CLAWDVault.LockTier.NONE);
+        vault.deposit(2000 ether, REDVault.LockTier.NONE);
 
         assertEq(vault.totalAssets(), 3000 ether);
         assertEq(vault.balanceOf(alice), 1000 ether);
@@ -253,7 +253,7 @@ contract CLAWDVaultTest is Test {
 
     function test_withdraw_from_strategy_on_large_withdrawal() public {
         vm.prank(alice);
-        vault.deposit(1000 ether, CLAWDVault.LockTier.NONE);
+        vault.deposit(1000 ether, REDVault.LockTier.NONE);
 
         vm.prank(owner);
         vault.deployToStrategy(0, 900 ether);
@@ -262,6 +262,6 @@ contract CLAWDVaultTest is Test {
         vm.prank(alice);
         vault.withdraw(1000 ether);
 
-        assertEq(clawd.balanceOf(alice), 100_000 ether);
+        assertEq(red.balanceOf(alice), 100_000 ether);
     }
 }

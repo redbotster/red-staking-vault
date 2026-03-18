@@ -1,6 +1,6 @@
 import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 
-// Minimal ERC20 ABI for CLAWD token
+// Minimal ERC20 ABI for RED token
 const erc20Abi = [
   {
     inputs: [{ name: "account", type: "address" }],
@@ -54,8 +54,8 @@ const erc20Abi = [
 
 const externalContracts = {
   8453: {
-    CLAWDToken: {
-      address: "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07",
+    REDToken: {
+      address: "0x2e662015a501f066e043d64d04f77ffe551a4b07",
       abi: erc20Abi,
     },
   },
