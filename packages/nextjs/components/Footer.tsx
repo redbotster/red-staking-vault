@@ -1,16 +1,14 @@
 import React from "react";
-import Link from "next/link";
 import { useFetchNativeCurrencyPrice } from "@scaffold-ui/hooks";
 import { hardhat } from "viem/chains";
 import { CurrencyDollarIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { HeartIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
 import { SwitchTheme } from "~~/components/SwitchTheme";
-import { BuidlGuidlLogo } from "~~/components/assets/BuidlGuidlLogo";
 import { Faucet } from "~~/components/scaffold-eth";
 import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 
 /**
- * Site footer
+ * Site footer — Red Lobster style
  */
 export const Footer = () => {
   const { targetNetwork } = useTargetNetwork();
@@ -43,37 +41,43 @@ export const Footer = () => {
           <SwitchTheme className={`pointer-events-auto ${isLocalNetwork ? "self-end md:self-auto" : ""}`} />
         </div>
       </div>
-      <div className="w-full">
-        <ul className="menu menu-horizontal w-full">
-          <div className="flex justify-center items-center gap-2 text-sm w-full">
-            <div className="text-center">
-              <a href="https://github.com/scaffold-eth/se-2" target="_blank" rel="noreferrer" className="link">
-                Fork me
-              </a>
-            </div>
-            <span>·</span>
-            <div className="flex justify-center items-center gap-2">
-              <p className="m-0 text-center">
-                Built with <HeartIcon className="inline-block h-4 w-4" /> at
-              </p>
-              <a
-                className="flex justify-center items-center gap-1"
-                href="https://buidlguidl.com/"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <BuidlGuidlLogo className="w-3 h-5 pb-1" />
-                <span className="link">BuidlGuidl</span>
-              </a>
-            </div>
-            <span>·</span>
-            <div className="text-center">
-              <a href="https://t.me/joinchat/KByvmRe5wkR-8F_zz6AjpA" target="_blank" rel="noreferrer" className="link">
-                Support
-              </a>
-            </div>
+      <div className="w-full border-t border-[#cc0000]/20 pt-4">
+        <div className="flex flex-col items-center gap-2 text-sm opacity-70">
+          <p className="m-0 tracking-widest uppercase text-xs" style={{ fontFamily: "Georgia, serif" }}>
+            Red Botster Staking Vault
+          </p>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://github.com/redbotster/red-staking-vault"
+              target="_blank"
+              rel="noreferrer"
+              className="link"
+            >
+              GitHub
+            </a>
+            <span className="text-[#cc0000]">|</span>
+            <a
+              href="https://redbotster.github.io/redbotster/"
+              target="_blank"
+              rel="noreferrer"
+              className="link"
+            >
+              RedBotster.eth
+            </a>
+            <span className="text-[#cc0000]">|</span>
+            <a
+              href="https://basescan.org/address/0xeeb35235ac915e46f9a55b5d9f993435d4a0eb13"
+              target="_blank"
+              rel="noreferrer"
+              className="link"
+            >
+              Contract
+            </a>
           </div>
-        </ul>
+          <p className="m-0 text-xs opacity-50">
+            No actual lobsters were harmed in the staking of these tokens.
+          </p>
+        </div>
       </div>
     </div>
   );

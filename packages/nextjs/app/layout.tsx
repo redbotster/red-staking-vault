@@ -6,8 +6,8 @@ import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 export const metadata = getMetadata({
-  title: "RED Staking Vault",
-  description: "Auto-compounding stRED vault — deposit RED, earn yield automatically",
+  title: "Red Botster | Staking & Seafood",
+  description: "Deposit RED, earn yield. Auto-compounding stRED vault served fresh on Base.",
 });
 
 const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {

@@ -15,53 +15,55 @@
     dark --prefersdark;
 }
 
+/* Red Lobster-inspired light theme */
 @plugin "daisyui/theme" {
   name: "light";
 
-  --color-primary: #93bbfb;
-  --color-primary-content: #212638;
-  --color-secondary: #dae8ff;
-  --color-secondary-content: #212638;
-  --color-accent: #93bbfb;
-  --color-accent-content: #212638;
-  --color-neutral: #212638;
+  --color-primary: #cc0000;
+  --color-primary-content: #ffffff;
+  --color-secondary: #8b0000;
+  --color-secondary-content: #ffffff;
+  --color-accent: #d4a017;
+  --color-accent-content: #1a0a00;
+  --color-neutral: #1a0a00;
   --color-neutral-content: #ffffff;
-  --color-base-100: #ffffff;
-  --color-base-200: #f4f8ff;
-  --color-base-300: #dae8ff;
-  --color-base-content: #212638;
-  --color-info: #93bbfb;
-  --color-success: #34eeb6;
-  --color-warning: #ffcf72;
-  --color-error: #ff8863;
+  --color-base-100: #fff8f0;
+  --color-base-200: #fff0e0;
+  --color-base-300: #ffe0c0;
+  --color-base-content: #1a0a00;
+  --color-info: #cc0000;
+  --color-success: #2d8f3c;
+  --color-warning: #d4a017;
+  --color-error: #cc0000;
 
-  --radius-field: 9999rem;
-  --radius-box: 1rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
   --tt-tailw: 6px;
 }
 
+/* Red Lobster-inspired dark theme */
 @plugin "daisyui/theme" {
   name: "dark";
 
-  --color-primary: #212638;
-  --color-primary-content: #f9fbff;
-  --color-secondary: #323f61;
-  --color-secondary-content: #f9fbff;
-  --color-accent: #4969a6;
-  --color-accent-content: #f9fbff;
-  --color-neutral: #f9fbff;
-  --color-neutral-content: #385183;
-  --color-base-100: #385183;
-  --color-base-200: #2a3655;
-  --color-base-300: #212638;
-  --color-base-content: #f9fbff;
-  --color-info: #385183;
-  --color-success: #34eeb6;
-  --color-warning: #ffcf72;
-  --color-error: #ff8863;
+  --color-primary: #cc0000;
+  --color-primary-content: #ffffff;
+  --color-secondary: #ff4444;
+  --color-secondary-content: #ffffff;
+  --color-accent: #d4a017;
+  --color-accent-content: #1a0a00;
+  --color-neutral: #ffeedd;
+  --color-neutral-content: #1a0a00;
+  --color-base-100: #2a1008;
+  --color-base-200: #1a0a00;
+  --color-base-300: #0f0500;
+  --color-base-content: #ffeedd;
+  --color-info: #cc0000;
+  --color-success: #2d8f3c;
+  --color-warning: #d4a017;
+  --color-error: #ff4444;
 
-  --radius-field: 9999rem;
-  --radius-box: 1rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
 
   --tt-tailw: 6px;
   --tt-bg: var(--color-primary);
@@ -121,4 +123,3 @@
 .link:hover {
   opacity: 80%;
 }
-  

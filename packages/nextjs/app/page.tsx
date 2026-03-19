@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Address } from "@scaffold-ui/components";
 import type { NextPage } from "next";
 import { formatEther, parseEther } from "viem";
@@ -11,10 +12,10 @@ import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaf
 import { useDeployedContractInfo } from "~~/hooks/scaffold-eth";
 
 const LOCK_TIERS = [
-  { value: 0, label: "No Lock", description: "No fee discount, 1x yield" },
-  { value: 1, label: "90 Days", description: "10% fee discount, 1.05x yield" },
-  { value: 2, label: "180 Days", description: "25% fee discount, 1.15x yield" },
-  { value: 3, label: "365 Days", description: "50% fee discount, 1.3x yield" },
+  { value: 0, label: "No Lock", tag: "Appetizer", description: "No fee discount, 1x yield", emoji: "🦐" },
+  { value: 1, label: "90 Days", tag: "Crab Feast", description: "10% fee discount, 1.05x yield", emoji: "🦀" },
+  { value: 2, label: "180 Days", tag: "Lobster Tail", description: "25% fee discount, 1.15x yield", emoji: "🦞" },
+  { value: 3, label: "365 Days", tag: "Admiral's Platter", description: "50% fee discount, 1.3x yield", emoji: "👑" },
 ] as const;
 
 const RED_TOKEN = "0x2e662015a501f066e043d64d04f77ffe551a4b07";
@@ -33,11 +34,9 @@ const Home: NextPage = () => {
   const [isCompounding, setIsCompounding] = useState(false);
   const [redPrice, setRedPrice] = useState<number>(0);
 
-  // Target chain - Base for production, foundry for dev
   const targetChainId = chain?.id === 31337 ? 31337 : base.id;
   const wrongNetwork = isConnected && chain?.id !== targetChainId;
 
-  // Fetch RED price from DexScreener
   useEffect(() => {
     const fetchPrice = async () => {
       try {
@@ -58,7 +57,6 @@ const Home: NextPage = () => {
   const { data: vaultInfo } = useDeployedContractInfo("REDVault");
   const vaultAddress = vaultInfo?.address;
 
-  // Read vault data
   const { data: totalAssets } = useScaffoldReadContract({
     contractName: "REDVault",
     functionName: "totalAssets",
@@ -92,7 +90,6 @@ const Home: NextPage = () => {
     watch: true,
   });
 
-  // Read RED allowance for vault
   const { data: redAllowance } = useScaffoldReadContract({
     contractName: "REDToken",
     functionName: "allowance",
@@ -100,7 +97,6 @@ const Home: NextPage = () => {
     watch: true,
   });
 
-  // Read RED balance
   const { data: redBalance } = useScaffoldReadContract({
     contractName: "REDToken",
     functionName: "balanceOf",
@@ -108,7 +104,6 @@ const Home: NextPage = () => {
     watch: true,
   });
 
-  // Write contracts
   const { writeContractAsync: vaultWrite } = useScaffoldWriteContract("REDVault");
   const { writeContractAsync: tokenWrite } = useScaffoldWriteContract("REDToken");
 
@@ -119,7 +114,6 @@ const Home: NextPage = () => {
     if (!depositAmount || parseFloat(depositAmount) <= 0 || !vaultAddress) return;
     setIsApproving(true);
     try {
-      // Approve 3x the amount for convenience
       const approveAmount = depositAmountWei * 3n;
       await tokenWrite({
         functionName: "approve",
@@ -189,7 +183,6 @@ const Home: NextPage = () => {
   const lockTier = userDeposit ? Number(userDeposit[2]) : 0;
   const isLocked = lockExpiry > Math.floor(Date.now() / 1000);
 
-  // Four-state deposit button
   const renderDepositButton = () => {
     if (!isConnected) {
       return <RainbowKitCustomConnectButton />;
@@ -213,7 +206,7 @@ const Home: NextPage = () => {
     }
     if (needsApproval && depositAmount && parseFloat(depositAmount) > 0) {
       return (
-        <button className="btn btn-primary w-full" onClick={handleApprove} disabled={isApproving || approveCooldown}>
+        <button className="btn bg-[#cc0000] hover:bg-[#aa0000] text-white border-none w-full" onClick={handleApprove} disabled={isApproving || approveCooldown}>
           {isApproving || approveCooldown ? (
             <>
               <span className="loading loading-spinner loading-sm" /> Approving...
@@ -226,7 +219,7 @@ const Home: NextPage = () => {
     }
     return (
       <button
-        className="btn btn-primary w-full"
+        className="btn bg-[#cc0000] hover:bg-[#aa0000] text-white border-none w-full"
         onClick={handleDeposit}
         disabled={isDepositing || !depositAmount || parseFloat(depositAmount) <= 0}
       >
@@ -235,13 +228,12 @@ const Home: NextPage = () => {
             <span className="loading loading-spinner loading-sm" /> Depositing...
           </>
         ) : (
-          "Deposit"
+          "Place Your Order"
         )}
       </button>
     );
   };
 
-  // Four-state withdraw button
   const renderWithdrawButton = () => {
     if (!isConnected) {
       return <RainbowKitCustomConnectButton />;
@@ -265,7 +257,7 @@ const Home: NextPage = () => {
     }
     return (
       <button
-        className="btn btn-secondary w-full"
+        className="btn bg-[#8b0000] hover:bg-[#6b0000] text-white border-none w-full"
         onClick={handleWithdraw}
         disabled={isWithdrawing || !withdrawAmount || parseFloat(withdrawAmount) <= 0 || isLocked}
       >
@@ -274,180 +266,243 @@ const Home: NextPage = () => {
             <span className="loading loading-spinner loading-sm" /> Withdrawing...
           </>
         ) : isLocked ? (
-          "Locked"
+          "Still Marinating..."
         ) : (
-          "Withdraw"
+          "Cash Out"
         )}
       </button>
     );
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 p-4 md:p-8 bg-base-200 min-h-screen">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl">
-        <div className="card bg-base-100 shadow-md">
-          <div className="card-body p-4">
-            <h2 className="card-title text-sm opacity-70">Total Value Locked</h2>
-            <p className="text-2xl font-bold">{parseFloat(tvl).toLocaleString()} RED</p>
-            {tvlUsd && <p className="text-sm opacity-60">{tvlUsd}</p>}
+    <div className="flex flex-col items-center gap-6 p-4 md:p-8 min-h-screen">
+      {/* Hero Banner */}
+      <div className="w-full max-w-5xl bg-gradient-to-r from-[#cc0000] via-[#990000] to-[#cc0000] rounded-xl shadow-xl p-8 text-center text-white relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(255,255,255,0.1) 20px, rgba(255,255,255,0.1) 40px)" }} />
+        <div className="relative z-10">
+          <div className="flex justify-center mb-4">
+            <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#d4a017] shadow-lg">
+              <Image src="/pfp.jpg" alt="RedBotster" width={80} height={80} className="object-cover" />
+            </div>
           </div>
+          <h1 className="text-4xl md:text-5xl font-bold mb-2" style={{ fontFamily: "Georgia, serif" }}>
+            Red Botster
+          </h1>
+          <p className="text-lg text-white/80 tracking-widest uppercase mb-1" style={{ fontFamily: "Georgia, serif" }}>
+            Staking & Seafood
+          </p>
+          <p className="text-sm text-white/60 max-w-xl mx-auto">
+            Deposit your RED tokens into our vault and watch your yield simmer. Auto-compounding
+            rewards served fresh on Base.
+          </p>
         </div>
-        <div className="card bg-base-100 shadow-md">
-          <div className="card-body p-4">
-            <h2 className="card-title text-sm opacity-70">Total stRED Supply</h2>
-            <p className="text-2xl font-bold">
-              {totalSupply ? parseFloat(formatEther(totalSupply)).toLocaleString() : "0"}
-            </p>
+      </div>
+
+      {/* Today's Specials — Stats */}
+      <div className="w-full max-w-5xl">
+        <h2 className="text-center text-xs tracking-[0.3em] uppercase opacity-50 mb-3" style={{ fontFamily: "Georgia, serif" }}>
+          Today&apos;s Specials
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="card bg-base-100 shadow-md border border-[#cc0000]/10">
+            <div className="card-body p-5 text-center">
+              <p className="text-3xl mb-1">🦞</p>
+              <h2 className="text-xs tracking-widest uppercase opacity-50" style={{ fontFamily: "Georgia, serif" }}>Total Value Locked</h2>
+              <p className="text-2xl font-bold text-[#cc0000]">{parseFloat(tvl).toLocaleString()} RED</p>
+              {tvlUsd && <p className="text-sm opacity-50">{tvlUsd}</p>}
+            </div>
           </div>
-        </div>
-        <div className="card bg-base-100 shadow-md">
-          <div className="card-body p-4">
-            <h2 className="card-title text-sm opacity-70">Fee Structure</h2>
-            <p className="text-lg font-bold">0.5% on rewards</p>
-            <p className="text-xs opacity-60">50% burn · 25% treasury · 25% stakers</p>
+          <div className="card bg-base-100 shadow-md border border-[#cc0000]/10">
+            <div className="card-body p-5 text-center">
+              <p className="text-3xl mb-1">🍽️</p>
+              <h2 className="text-xs tracking-widest uppercase opacity-50" style={{ fontFamily: "Georgia, serif" }}>stRED Served</h2>
+              <p className="text-2xl font-bold text-[#cc0000]">
+                {totalSupply ? parseFloat(formatEther(totalSupply)).toLocaleString() : "0"}
+              </p>
+            </div>
+          </div>
+          <div className="card bg-base-100 shadow-md border border-[#cc0000]/10">
+            <div className="card-body p-5 text-center">
+              <p className="text-3xl mb-1">🔥</p>
+              <h2 className="text-xs tracking-widest uppercase opacity-50" style={{ fontFamily: "Georgia, serif" }}>House Fee</h2>
+              <p className="text-xl font-bold text-[#cc0000]">0.5% on rewards</p>
+              <p className="text-xs opacity-50">50% burn | 25% treasury | 25% stakers</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Your Position */}
+      {/* Your Tab */}
       {isConnected && (
-        <div className="card bg-base-100 shadow-md w-full max-w-4xl">
+        <div className="card bg-base-100 shadow-md w-full max-w-5xl border border-[#cc0000]/10">
           <div className="card-body">
-            <h2 className="card-title">Your Position</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm opacity-70">RED Balance</p>
+            <h2 className="text-xs tracking-[0.3em] uppercase opacity-50 mb-3" style={{ fontFamily: "Georgia, serif" }}>
+              Your Tab
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <p className="text-xs tracking-widest uppercase opacity-50">RED Balance</p>
                 <p className="text-xl font-bold">{parseFloat(userRedBal).toLocaleString()}</p>
-                {userRedBalUsd && <p className="text-sm opacity-60">{userRedBalUsd}</p>}
+                {userRedBalUsd && <p className="text-xs opacity-50">{userRedBalUsd}</p>}
               </div>
-              <div>
-                <p className="text-sm opacity-70">stRED Balance</p>
+              <div className="text-center">
+                <p className="text-xs tracking-widest uppercase opacity-50">stRED Balance</p>
                 <p className="text-xl font-bold">{parseFloat(userShares).toLocaleString()}</p>
               </div>
-              <div>
-                <p className="text-sm opacity-70">Underlying RED</p>
+              <div className="text-center">
+                <p className="text-xs tracking-widest uppercase opacity-50">Underlying RED</p>
                 <p className="text-xl font-bold">{parseFloat(userUnderlying).toLocaleString()}</p>
-                {userUnderlyingUsd && <p className="text-sm opacity-60">{userUnderlyingUsd}</p>}
+                {userUnderlyingUsd && <p className="text-xs opacity-50">{userUnderlyingUsd}</p>}
               </div>
-              <div>
-                <p className="text-sm opacity-70">Lock Status</p>
+              <div className="text-center">
+                <p className="text-xs tracking-widest uppercase opacity-50">Status</p>
                 {isLocked ? (
-                  <p className="text-lg font-bold text-warning">
-                    Locked until {new Date(lockExpiry * 1000).toLocaleDateString()}
+                  <p className="text-lg font-bold text-[#d4a017]">
+                    Marinating until {new Date(lockExpiry * 1000).toLocaleDateString()}
                   </p>
                 ) : (
-                  <p className="text-lg font-bold text-success">Unlocked</p>
+                  <p className="text-lg font-bold text-[#2d8f3c]">Ready to Serve</p>
                 )}
-                <p className="text-xs opacity-60">Tier: {LOCK_TIERS[lockTier]?.label || "None"}</p>
+                <p className="text-xs opacity-50">Tier: {LOCK_TIERS[lockTier]?.tag || "None"}</p>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Deposit / Withdraw */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">
-        {/* Deposit */}
-        <div className="card bg-base-100 shadow-md">
-          <div className="card-body">
-            <h2 className="card-title">Deposit RED</h2>
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text">Amount</span>
-              </label>
-              <input
-                type="number"
-                placeholder="0.0"
-                className="input input-bordered w-full"
-                value={depositAmount}
-                onChange={e => setDepositAmount(e.target.value)}
-                disabled={isDepositing || isApproving}
-              />
-              {depositAmount && redPrice > 0 && (
-                <p className="text-sm opacity-60 mt-1">
-                  ≈ ${(parseFloat(depositAmount || "0") * redPrice).toFixed(2)} USD
-                </p>
-              )}
+      {/* Menu — Deposit / Withdraw */}
+      <div className="w-full max-w-5xl">
+        <h2 className="text-center text-xs tracking-[0.3em] uppercase opacity-50 mb-3" style={{ fontFamily: "Georgia, serif" }}>
+          The Menu
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Deposit */}
+          <div className="card bg-base-100 shadow-md border border-[#cc0000]/10">
+            <div className="card-body">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl">🦞</span>
+                <h2 className="card-title text-[#cc0000]" style={{ fontFamily: "Georgia, serif" }}>Deposit RED</h2>
+              </div>
+              <p className="text-xs opacity-50 mt-0 mb-3">Stake your RED and let us do the cooking.</p>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-xs tracking-widest uppercase opacity-60">Amount</span>
+                </label>
+                <input
+                  type="number"
+                  placeholder="0.0"
+                  className="input input-bordered w-full bg-base-200 focus:border-[#cc0000]"
+                  value={depositAmount}
+                  onChange={e => setDepositAmount(e.target.value)}
+                  disabled={isDepositing || isApproving}
+                />
+                {depositAmount && redPrice > 0 && (
+                  <p className="text-xs opacity-50 mt-1">
+                    ≈ ${(parseFloat(depositAmount || "0") * redPrice).toFixed(2)} USD
+                  </p>
+                )}
+              </div>
+              <div className="form-control mt-3">
+                <label className="label">
+                  <span className="label-text text-xs tracking-widest uppercase opacity-60">Marination Period</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {LOCK_TIERS.map(t => (
+                    <button
+                      key={t.value}
+                      onClick={() => setSelectedTier(t.value)}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${
+                        selectedTier === t.value
+                          ? "border-[#cc0000] bg-[#cc0000]/5"
+                          : "border-base-300 hover:border-[#cc0000]/30"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>{t.emoji}</span>
+                        <span className="font-bold text-sm">{t.tag}</span>
+                      </div>
+                      <p className="text-xs opacity-60 mt-1 mb-0">{t.label} {t.value > 0 ? `lock` : ""}</p>
+                      <p className="text-xs opacity-40 mb-0">{t.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="card-actions mt-4">{renderDepositButton()}</div>
             </div>
-            <div className="form-control mt-2">
-              <label className="label">
-                <span className="label-text">Lock Tier</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={selectedTier}
-                onChange={e => setSelectedTier(Number(e.target.value))}
-              >
-                {LOCK_TIERS.map(t => (
-                  <option key={t.value} value={t.value}>
-                    {t.label} — {t.description}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="card-actions mt-4">{renderDepositButton()}</div>
           </div>
-        </div>
 
-        {/* Withdraw */}
-        <div className="card bg-base-100 shadow-md">
-          <div className="card-body">
-            <h2 className="card-title">Withdraw RED</h2>
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text">stRED Shares</span>
-              </label>
-              <input
-                type="number"
-                placeholder="0.0"
-                className="input input-bordered w-full"
-                value={withdrawAmount}
-                onChange={e => setWithdrawAmount(e.target.value)}
-                disabled={isWithdrawing}
-              />
-              {withdrawAmount && (
-                <p className="text-sm opacity-60 mt-1">
-                  ≈ {withdrawAmount} RED{" "}
-                  {redPrice > 0 && `(~$${(parseFloat(withdrawAmount || "0") * redPrice).toFixed(2)})`}
-                </p>
-              )}
-            </div>
-            <div className="flex gap-2 mt-2">
-              <button className="btn btn-xs btn-outline" onClick={() => setWithdrawAmount(userShares)}>
-                Max
-              </button>
-            </div>
-            <div className="card-actions mt-4">{renderWithdrawButton()}</div>
-          </div>
-        </div>
-      </div>
+          {/* Withdraw */}
+          <div className="card bg-base-100 shadow-md border border-[#cc0000]/10">
+            <div className="card-body">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl">🧾</span>
+                <h2 className="card-title text-[#8b0000]" style={{ fontFamily: "Georgia, serif" }}>Withdraw RED</h2>
+              </div>
+              <p className="text-xs opacity-50 mt-0 mb-3">Leaving so soon? Take your RED to go.</p>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-xs tracking-widest uppercase opacity-60">stRED Shares</span>
+                </label>
+                <input
+                  type="number"
+                  placeholder="0.0"
+                  className="input input-bordered w-full bg-base-200 focus:border-[#8b0000]"
+                  value={withdrawAmount}
+                  onChange={e => setWithdrawAmount(e.target.value)}
+                  disabled={isWithdrawing}
+                />
+                {withdrawAmount && (
+                  <p className="text-xs opacity-50 mt-1">
+                    ≈ {withdrawAmount} RED{" "}
+                    {redPrice > 0 && `(~$${(parseFloat(withdrawAmount || "0") * redPrice).toFixed(2)})`}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button
+                  className="btn btn-sm bg-[#cc0000]/10 text-[#cc0000] border-[#cc0000]/20 hover:bg-[#cc0000]/20"
+                  onClick={() => setWithdrawAmount(userShares)}
+                >
+                  All of it
+                </button>
+              </div>
+              <div className="card-actions mt-4">{renderWithdrawButton()}</div>
 
-      {/* Compound Button */}
-      <div className="card bg-base-100 shadow-md w-full max-w-4xl">
-        <div className="card-body flex-row items-center justify-between">
-          <div>
-            <h2 className="card-title">Auto-Compound</h2>
-            <p className="text-sm opacity-60">Anyone can trigger compounding to harvest and reinvest rewards</p>
+              {/* Compound section below withdraw */}
+              <div className="divider text-xs opacity-30">OR</div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🔄</span>
+                    <h3 className="font-bold text-sm" style={{ fontFamily: "Georgia, serif" }}>Auto-Compound</h3>
+                  </div>
+                  <p className="text-xs opacity-50 mt-1 mb-0">Ring the dinner bell to harvest and reinvest rewards</p>
+                </div>
+                <button
+                  className="btn bg-[#d4a017] hover:bg-[#b8900f] text-white border-none btn-sm"
+                  onClick={handleCompound}
+                  disabled={isCompounding}
+                >
+                  {isCompounding ? (
+                    <>
+                      <span className="loading loading-spinner loading-xs" /> Cooking...
+                    </>
+                  ) : (
+                    "Compound"
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
-          <button className="btn btn-accent" onClick={handleCompound} disabled={isCompounding}>
-            {isCompounding ? (
-              <>
-                <span className="loading loading-spinner loading-sm" /> Compounding...
-              </>
-            ) : (
-              "Compound"
-            )}
-          </button>
         </div>
       </div>
 
       {/* Contract Info */}
       {vaultAddress && (
-        <div className="text-center mt-4 text-sm opacity-70">
-          <p>Vault Contract:</p>
+        <div className="text-center mt-2 text-xs opacity-40">
+          <p className="mb-1">Vault:</p>
           <Address address={vaultAddress} />
-          <p className="mt-2">RED Token:</p>
+          <p className="mt-2 mb-1">RED Token:</p>
           <Address address={RED_TOKEN} />
         </div>
       )}
