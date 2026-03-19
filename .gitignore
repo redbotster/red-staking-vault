@@ -28,3 +28,4 @@ dist
 *.key
 broadcast/
 cache/
+.vercel

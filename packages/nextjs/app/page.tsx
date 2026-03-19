@@ -32,6 +32,7 @@ const Home: NextPage = () => {
   const [isApproving, setIsApproving] = useState(false);
   const [approveCooldown, setApproveCooldown] = useState(false);
   const [isCompounding, setIsCompounding] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
   const [redPrice, setRedPrice] = useState<number>(0);
 
   const targetChainId = chain?.id === 31337 ? 31337 : base.id;
@@ -104,8 +105,30 @@ const Home: NextPage = () => {
     watch: true,
   });
 
+  // BOTSTER token reads
+  const { data: botsterBalance } = useScaffoldReadContract({
+    contractName: "BotsterToken",
+    functionName: "balanceOf",
+    args: [address],
+    watch: true,
+  });
+
+  const { data: botsterClaimable } = useScaffoldReadContract({
+    contractName: "BotsterRewards",
+    functionName: "earned",
+    args: [address],
+    watch: true,
+  });
+
+  const { data: currentEpoch } = useScaffoldReadContract({
+    contractName: "BotsterRewards",
+    functionName: "currentEpoch",
+    watch: true,
+  });
+
   const { writeContractAsync: vaultWrite } = useScaffoldWriteContract("REDVault");
   const { writeContractAsync: tokenWrite } = useScaffoldWriteContract("REDToken");
+  const { writeContractAsync: rewardsWrite } = useScaffoldWriteContract("BotsterRewards");
 
   const depositAmountWei = depositAmount ? parseEther(depositAmount) : 0n;
   const needsApproval = !redAllowance || redAllowance < depositAmountWei;
@@ -128,6 +151,18 @@ const Home: NextPage = () => {
     }
   };
 
+  const syncBotsterRewards = async () => {
+    if (!address) return;
+    try {
+      await rewardsWrite({
+        functionName: "sync",
+        args: [address],
+      });
+    } catch (e) {
+      console.error("BOTSTER sync failed:", e);
+    }
+  };
+
   const handleDeposit = async () => {
     if (!depositAmount || parseFloat(depositAmount) <= 0) return;
     setIsDepositing(true);
@@ -137,6 +172,7 @@ const Home: NextPage = () => {
         args: [parseEther(depositAmount), selectedTier],
       });
       setDepositAmount("");
+      await syncBotsterRewards();
     } catch (e) {
       console.error("Deposit failed:", e);
     } finally {
@@ -153,6 +189,7 @@ const Home: NextPage = () => {
         args: [parseEther(withdrawAmount)],
       });
       setWithdrawAmount("");
+      await syncBotsterRewards();
     } catch (e) {
       console.error("Withdraw failed:", e);
     } finally {
@@ -171,6 +208,17 @@ const Home: NextPage = () => {
     }
   };
 
+  const handleClaim = async () => {
+    setIsClaiming(true);
+    try {
+      await rewardsWrite({ functionName: "claim" });
+    } catch (e) {
+      console.error("Claim failed:", e);
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
   const tvl = totalAssets ? formatEther(totalAssets) : "0";
   const tvlUsd = redPrice > 0 ? `~$${(parseFloat(tvl) * redPrice).toFixed(2)}` : "";
   const userShares = stRedBalance ? formatEther(stRedBalance) : "0";
@@ -178,6 +226,8 @@ const Home: NextPage = () => {
   const userUnderlyingUsd = redPrice > 0 ? `~$${(parseFloat(userUnderlying) * redPrice).toFixed(2)}` : "";
   const userRedBal = redBalance ? formatEther(redBalance) : "0";
   const userRedBalUsd = redPrice > 0 ? `~$${(parseFloat(userRedBal) * redPrice).toFixed(2)}` : "";
+  const userBotsterBal = botsterBalance ? formatEther(botsterBalance) : "0";
+  const userBotsterClaimable = botsterClaimable ? formatEther(botsterClaimable) : "0";
 
   const lockExpiry = userDeposit ? Number(userDeposit[1]) : 0;
   const lockTier = userDeposit ? Number(userDeposit[2]) : 0;
@@ -206,7 +256,11 @@ const Home: NextPage = () => {
     }
     if (needsApproval && depositAmount && parseFloat(depositAmount) > 0) {
       return (
-        <button className="btn bg-[#cc0000] hover:bg-[#aa0000] text-white border-none w-full" onClick={handleApprove} disabled={isApproving || approveCooldown}>
+        <button
+          className="btn bg-[#cc0000] hover:bg-[#aa0000] text-white border-none w-full"
+          onClick={handleApprove}
+          disabled={isApproving || approveCooldown}
+        >
           {isApproving || approveCooldown ? (
             <>
               <span className="loading loading-spinner loading-sm" /> Approving...
@@ -278,7 +332,13 @@ const Home: NextPage = () => {
     <div className="flex flex-col items-center gap-6 p-4 md:p-8 min-h-screen">
       {/* Hero Banner */}
       <div className="w-full max-w-5xl bg-gradient-to-r from-[#cc0000] via-[#990000] to-[#cc0000] rounded-xl shadow-xl p-8 text-center text-white relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(255,255,255,0.1) 20px, rgba(255,255,255,0.1) 40px)" }} />
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(255,255,255,0.1) 20px, rgba(255,255,255,0.1) 40px)",
+          }}
+        />
         <div className="relative z-10">
           <div className="flex justify-center mb-4">
             <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#d4a017] shadow-lg">
@@ -292,22 +352,27 @@ const Home: NextPage = () => {
             Staking & Seafood
           </p>
           <p className="text-sm text-white/60 max-w-xl mx-auto">
-            Deposit your RED tokens into our vault and watch your yield simmer. Auto-compounding
-            rewards served fresh on Base.
+            Deposit your RED tokens into our vault and watch your yield simmer. Auto-compounding rewards served fresh on
+            Base.
           </p>
         </div>
       </div>
 
       {/* Today's Specials — Stats */}
       <div className="w-full max-w-5xl">
-        <h2 className="text-center text-xs tracking-[0.3em] uppercase opacity-50 mb-3" style={{ fontFamily: "Georgia, serif" }}>
+        <h2
+          className="text-center text-xs tracking-[0.3em] uppercase opacity-50 mb-3"
+          style={{ fontFamily: "Georgia, serif" }}
+        >
           Today&apos;s Specials
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="card bg-base-100 shadow-md border border-[#cc0000]/10">
             <div className="card-body p-5 text-center">
               <p className="text-3xl mb-1">🦞</p>
-              <h2 className="text-xs tracking-widest uppercase opacity-50" style={{ fontFamily: "Georgia, serif" }}>Total Value Locked</h2>
+              <h2 className="text-xs tracking-widest uppercase opacity-50" style={{ fontFamily: "Georgia, serif" }}>
+                Total Value Locked
+              </h2>
               <p className="text-2xl font-bold text-[#cc0000]">{parseFloat(tvl).toLocaleString()} RED</p>
               {tvlUsd && <p className="text-sm opacity-50">{tvlUsd}</p>}
             </div>
@@ -315,7 +380,9 @@ const Home: NextPage = () => {
           <div className="card bg-base-100 shadow-md border border-[#cc0000]/10">
             <div className="card-body p-5 text-center">
               <p className="text-3xl mb-1">🍽️</p>
-              <h2 className="text-xs tracking-widest uppercase opacity-50" style={{ fontFamily: "Georgia, serif" }}>stRED Served</h2>
+              <h2 className="text-xs tracking-widest uppercase opacity-50" style={{ fontFamily: "Georgia, serif" }}>
+                stRED Served
+              </h2>
               <p className="text-2xl font-bold text-[#cc0000]">
                 {totalSupply ? parseFloat(formatEther(totalSupply)).toLocaleString() : "0"}
               </p>
@@ -324,13 +391,63 @@ const Home: NextPage = () => {
           <div className="card bg-base-100 shadow-md border border-[#cc0000]/10">
             <div className="card-body p-5 text-center">
               <p className="text-3xl mb-1">🔥</p>
-              <h2 className="text-xs tracking-widest uppercase opacity-50" style={{ fontFamily: "Georgia, serif" }}>House Fee</h2>
+              <h2 className="text-xs tracking-widest uppercase opacity-50" style={{ fontFamily: "Georgia, serif" }}>
+                House Fee
+              </h2>
               <p className="text-xl font-bold text-[#cc0000]">0.5% on rewards</p>
               <p className="text-xs opacity-50">50% burn | 25% treasury | 25% stakers</p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* BOTSTER Rewards Card */}
+      {isConnected && (
+        <div className="card bg-base-100 shadow-md w-full max-w-5xl border border-[#d4a017]/30 bg-gradient-to-r from-base-100 to-[#d4a017]/5">
+          <div className="card-body">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-2xl">🏆</span>
+              <h2 className="text-xs tracking-[0.3em] uppercase opacity-50" style={{ fontFamily: "Georgia, serif" }}>
+                BOTSTER Rewards
+              </h2>
+              {currentEpoch !== undefined && (
+                <span className="badge badge-sm bg-[#d4a017]/20 text-[#d4a017] border-[#d4a017]/30">
+                  Epoch {currentEpoch.toString()}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+              <div className="text-center">
+                <p className="text-xs tracking-widest uppercase opacity-50">BOTSTER Balance</p>
+                <p className="text-2xl font-bold text-[#d4a017]">
+                  {parseFloat(userBotsterBal).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs tracking-widest uppercase opacity-50">Claimable</p>
+                <p className="text-2xl font-bold text-[#2d8f3c]">
+                  {parseFloat(userBotsterClaimable).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="text-center">
+                <button
+                  className="btn bg-[#d4a017] hover:bg-[#b8900f] text-white border-none w-full"
+                  onClick={handleClaim}
+                  disabled={isClaiming || !botsterClaimable || botsterClaimable === 0n}
+                >
+                  {isClaiming ? (
+                    <>
+                      <span className="loading loading-spinner loading-sm" /> Claiming...
+                    </>
+                  ) : (
+                    "Claim BOTSTER"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Your Tab */}
       {isConnected && (
@@ -372,7 +489,10 @@ const Home: NextPage = () => {
 
       {/* Menu — Deposit / Withdraw */}
       <div className="w-full max-w-5xl">
-        <h2 className="text-center text-xs tracking-[0.3em] uppercase opacity-50 mb-3" style={{ fontFamily: "Georgia, serif" }}>
+        <h2
+          className="text-center text-xs tracking-[0.3em] uppercase opacity-50 mb-3"
+          style={{ fontFamily: "Georgia, serif" }}
+        >
           The Menu
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -381,7 +501,9 @@ const Home: NextPage = () => {
             <div className="card-body">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-2xl">🦞</span>
-                <h2 className="card-title text-[#cc0000]" style={{ fontFamily: "Georgia, serif" }}>Deposit RED</h2>
+                <h2 className="card-title text-[#cc0000]" style={{ fontFamily: "Georgia, serif" }}>
+                  Deposit RED
+                </h2>
               </div>
               <p className="text-xs opacity-50 mt-0 mb-3">Stake your RED and let us do the cooking.</p>
               <div className="form-control">
@@ -421,7 +543,9 @@ const Home: NextPage = () => {
                         <span>{t.emoji}</span>
                         <span className="font-bold text-sm">{t.tag}</span>
                       </div>
-                      <p className="text-xs opacity-60 mt-1 mb-0">{t.label} {t.value > 0 ? `lock` : ""}</p>
+                      <p className="text-xs opacity-60 mt-1 mb-0">
+                        {t.label} {t.value > 0 ? `lock` : ""}
+                      </p>
                       <p className="text-xs opacity-40 mb-0">{t.description}</p>
                     </button>
                   ))}
@@ -436,7 +560,9 @@ const Home: NextPage = () => {
             <div className="card-body">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-2xl">🧾</span>
-                <h2 className="card-title text-[#8b0000]" style={{ fontFamily: "Georgia, serif" }}>Withdraw RED</h2>
+                <h2 className="card-title text-[#8b0000]" style={{ fontFamily: "Georgia, serif" }}>
+                  Withdraw RED
+                </h2>
               </div>
               <p className="text-xs opacity-50 mt-0 mb-3">Leaving so soon? Take your RED to go.</p>
               <div className="form-control">
@@ -474,7 +600,9 @@ const Home: NextPage = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-xl">🔄</span>
-                    <h3 className="font-bold text-sm" style={{ fontFamily: "Georgia, serif" }}>Auto-Compound</h3>
+                    <h3 className="font-bold text-sm" style={{ fontFamily: "Georgia, serif" }}>
+                      Auto-Compound
+                    </h3>
                   </div>
                   <p className="text-xs opacity-50 mt-1 mb-0">Ring the dinner bell to harvest and reinvest rewards</p>
                 </div>
@@ -504,6 +632,10 @@ const Home: NextPage = () => {
           <Address address={vaultAddress} />
           <p className="mt-2 mb-1">RED Token:</p>
           <Address address={RED_TOKEN} />
+          <p className="mt-2 mb-1">BOTSTER Token:</p>
+          <Address address="0x3187862bdd73d84f11190c4ba9909597c5faad98" />
+          <p className="mt-2 mb-1">BOTSTER Rewards:</p>
+          <Address address="0x74331ad21816954ad61563e30daf5645d8d96a5d" />
         </div>
       )}
     </div>
